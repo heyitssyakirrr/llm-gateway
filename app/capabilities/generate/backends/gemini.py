@@ -14,7 +14,7 @@ from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types as genai_types
 
-from app.capabilitites.generate.base import (
+from app.capabilities.generate.base import (
     BackendAuthError,
     GenerationBackend,
     GenerationBackendError,

@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
 from app.auth import verify_api_key
-from app.capabilitites.generate.base import (
+from app.capabilities.generate.base import (
     BackendAuthError,
     GenerationParams,
     QuotaExceededError,
@@ -22,8 +22,8 @@ from app.capabilitites.generate.base import (
 from app.config import get_settings
 from app.logging_db import RequestLogEntry, init_db, log_request
 from app.pricing import estimate_cost
-from app.capabilitites.generate.registry import GenerationRegistry, build_generation_registry
-from app.capabilitites.generate.router import route_generation
+from app.capabilities.generate.registry import GenerationRegistry, build_generation_registry
+from app.capabilities.generate.router import route_generation
 from app.schemas.generate import GenerateRequest, GenerateResponse
 from app.schemas.health import BackendHealth, HealthResponse
 

@@ -8,8 +8,8 @@ ever ask the registry for a backend by name - they never construct an
 adapter directly.
 """
 
-from app.capabilitites.generate.base import GenerationBackend
-from app.capabilitites.generate.backend.gemini_generate import GeminiGenerationBackend
+from app.capabilities.generate.base import GenerationBackend
+from app.capabilities.generate.backends.gemini import GeminiGenerationBackend
 from app.config import Settings
 
 
