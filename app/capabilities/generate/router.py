@@ -11,8 +11,8 @@ G2 adds real failover, main.py's calling code doesn't need to change shape
 
 from dataclasses import dataclass, field
 
-from app.backends.base import GenerationBackend
-from app.registry import GenerationRegistry
+from app.capabilitites.generate.base import GenerationBackend
+from app.capabilitites.generate.registry import GenerationRegistry
 
 
 @dataclass

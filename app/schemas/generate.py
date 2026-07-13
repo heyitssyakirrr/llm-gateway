@@ -43,16 +43,3 @@ class GenerateResponse(BaseModel):
     tokens_used: int | None
     cost_estimate: float
     retries: int = 0
-
-
-class BackendHealth(BaseModel):
-    backend: str
-    reachable: bool
-    detail: str = ""
-
-
-class HealthResponse(BaseModel):
-    """GET /v1/health - per-backend status, never one aggregate boolean
-    (Section 3.8)."""
-
-    backends: list[BackendHealth]
