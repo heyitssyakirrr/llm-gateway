@@ -18,7 +18,7 @@ from app.capabilities.generate.registry import GenerationRegistry
 @dataclass
 class RoutingDecision:
     backend: GenerationBackend
-    fallback_chain: list[str] = field(default_factory=list)
+    fallback_chain: list[str] = field(default_factory=list) # for error reporting, not used yet in G1
 
 
 def route_generation(registry: GenerationRegistry, requested_backend: str | None) -> RoutingDecision:

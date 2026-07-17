@@ -26,11 +26,12 @@ async def verify_api_key(x_api_key: str | None = Header(default=None)) -> str:
             detail="Missing X-API-Key header.",
         )
 
-    keys = get_settings().api_keys_by_key()
-    caller_id = keys.get(x_api_key)
+    # get the keys dict from settings               key               value
+    keys = get_settings().api_keys_by_key()     # {"dev-secret-123": "syakir"}
+    caller_id = keys.get(x_api_key)             # looks up "dev-secret-123" in that dict → finds "syakir"
     if caller_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key.",
         )
-    return caller_id
+    return caller_id                            # returns the string "syakir"

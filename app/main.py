@@ -18,6 +18,7 @@ from app.logging_db import init_db
 from app.schemas.health import BackendHealth, HealthResponse
 
 
+# things that happens once, when the app starts up, not once per request.  
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()

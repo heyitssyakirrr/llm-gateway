@@ -51,7 +51,7 @@ def _classify_error_type(exc: Exception) -> str:
 async def generate(
     body: GenerateRequest,
     http_request: Request,
-    caller_id: str = Depends(verify_api_key),
+    caller_id: str = Depends(verify_api_key), #syakir
     x_request_id: str | None = Header(default=None),
 ) -> GenerateResponse:
     request_id = x_request_id or str(uuid.uuid4())
@@ -67,11 +67,13 @@ async def generate(
         "stop_sequences": body.stop_sequences,
     }
 
+    # router.py resolves which backend object to use?
     try:
         decision = route_generation(registry, body.backend)
     except KeyError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
+    # translate the HTTP-shaped body (generate request) into the backend-shaped dataclass (GenerationParams)
     gen_params = GenerationParams(
         prompt=body.prompt,
         system_instruction=body.system_instruction,
@@ -84,6 +86,7 @@ async def generate(
 
     start = time.perf_counter()
     try:
+        # call to backend's generate method
         result = await decision.backend.generate(gen_params)
     except Exception as exc:
         latency_ms = int((time.perf_counter() - start) * 1000)

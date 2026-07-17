@@ -114,3 +114,6 @@ service-account.json
 # results/
 # cache/
 # data/
+
+LLM_GATEWAY_PROGRESS.md
+LLM_GATEWAY_PROJECT_PLAN.md

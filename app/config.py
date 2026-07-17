@@ -23,7 +23,7 @@ class Settings:
 
     # --- Provider model choice (never hardcode elsewhere - free tiers shift) ---
     gemini_model_name: str = field(
-        default_factory=lambda: os.environ.get("GEMINI_MODEL_NAME", "gemini-2.5-flash")
+        default_factory=lambda: os.environ.get("GEMINI_MODEL_NAME", "gemini-flash-latest")
     )
 
     # --- Which backend serves a capability when the caller doesn't pin one ---
@@ -42,13 +42,13 @@ class Settings:
         every request. Parsed lazily rather than at import time so tests can
         swap env vars before calling this."""
         result: dict[str, str] = {}
-        for pair in self.raw_api_keys.split(","):
-            pair = pair.strip()
+        for pair in self.raw_api_keys.split(","):       # split into ["syakir:dev-secret-123"] if there is more than one caller
+            pair = pair.strip()                         # eg: {"dev-secret-123": "syakir", "9f3a7c21b8e04d5e": "policy-rag"}
             if not pair:
                 continue
-            caller_name, _, key = pair.partition(":")
+            caller_name, _, key = pair.partition(":")   # "syakir", ":", "dev-secret-123"
             if caller_name and key:
-                result[key] = caller_name
+                result[key] = caller_name               # {"dev-secret-123": "syakir"}
         return result
 
 

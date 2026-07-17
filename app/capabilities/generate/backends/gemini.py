@@ -43,6 +43,7 @@ class GeminiGenerationBackend(GenerationBackend):
         self.model_name = model_name
 
     async def generate(self, params: GenerationParams) -> GenerationResult:
+        # translate the provider GenerationParams into Gemini's SDK request shape
         config = genai_types.GenerateContentConfig(
             system_instruction=params.system_instruction,
             temperature=params.temperature,
