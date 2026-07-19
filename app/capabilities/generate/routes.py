@@ -65,6 +65,8 @@ async def generate(
         "top_p": body.top_p,
         "top_k": body.top_k,
         "stop_sequences": body.stop_sequences,
+        "has_image": body.image_base64 is not None,
+        "image_mime_type": body.image_mime_type,
     }
 
     # router.py resolves which backend object to use?
@@ -82,6 +84,8 @@ async def generate(
         top_p=body.top_p,
         top_k=body.top_k,
         stop_sequences=body.stop_sequences,
+        image_base64=body.image_base64,
+        image_mime_type=body.image_mime_type,
     )
 
     start = time.perf_counter()

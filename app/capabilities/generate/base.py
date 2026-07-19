@@ -33,6 +33,8 @@ class GenerationParams:
     top_p: float | None = None
     top_k: int | None = None
     stop_sequences: list[str] = field(default_factory=list)
+    image_base64: str | None = None
+    image_mime_type: str | None = None
 
 
 @dataclass

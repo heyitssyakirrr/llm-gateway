@@ -10,7 +10,7 @@ early).
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class GenerateRequest(BaseModel):
@@ -28,6 +28,21 @@ class GenerateRequest(BaseModel):
     top_p: float | None = Field(default=None, ge=0.0, le=1.0)
     top_k: int | None = Field(default=None, gt=0)
     stop_sequences: list[str] = Field(default_factory=list)
+    image_base64: str | None = Field(
+        default=None,
+        description="Base64-encoded image bytes (no data: URI prefix). "
+        "Requires image_mime_type to be set alongside it.",
+    )
+    image_mime_type: str | None = Field(
+        default=None,
+        description="e.g. 'image/jpeg', 'image/png'. Required if image_base64 is set.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_image_pair(self) -> "GenerateRequest":
+        if self.image_base64 and not self.image_mime_type:
+            raise ValueError("image_mime_type is required when image_base64 is provided.")
+        return self
 
 
 class GenerateResponse(BaseModel):

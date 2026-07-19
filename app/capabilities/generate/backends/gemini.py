@@ -9,6 +9,8 @@ Uses the `google-genai` SDK (the current unified SDK - the older
 `google-generativeai` package is deprecated). Install with:
     pip install google-genai
 """
+import base64
+import binascii
 
 from google import genai
 from google.genai import errors as genai_errors
@@ -43,7 +45,6 @@ class GeminiGenerationBackend(GenerationBackend):
         self.model_name = model_name
 
     async def generate(self, params: GenerationParams) -> GenerationResult:
-        # translate the provider GenerationParams into Gemini's SDK request shape
         config = genai_types.GenerateContentConfig(
             system_instruction=params.system_instruction,
             temperature=params.temperature,
@@ -52,15 +53,28 @@ class GeminiGenerationBackend(GenerationBackend):
             top_k=params.top_k,
             stop_sequences=params.stop_sequences or None,
         )
+
+        contents: list = []
+        if params.image_base64:
+            try:
+                image_bytes = base64.b64decode(params.image_base64, validate=True)
+            except binascii.Error as e:
+                raise GenerationBackendError(f"Invalid image_base64: {e}") from e
+            contents.append(
+                genai_types.Part.from_bytes(data=image_bytes, mime_type=params.image_mime_type)
+            )
+        contents.append(params.prompt)
+
         try:
             response = await self._client.aio.models.generate_content(
                 model=self.model_name,
-                contents=params.prompt,
+                contents=contents,
                 config=config,
             )
         except genai_errors.APIError as e:
             raise self._classify_error(e) from e
-
+        
+        print("finish_reason:", response.candidates[0].finish_reason)
         usage = response.usage_metadata
         return GenerationResult(
             text=response.text or "",
