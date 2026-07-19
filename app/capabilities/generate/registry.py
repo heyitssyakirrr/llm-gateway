@@ -10,6 +10,7 @@ adapter directly.
 
 from app.capabilities.generate.base import GenerationBackend
 from app.capabilities.generate.backends.gemini import GeminiGenerationBackend
+from app.capabilities.generate.backends.groq import GroqGenerationBackend
 from app.config import Settings
 
 
@@ -46,6 +47,10 @@ def build_generation_registry(settings: Settings) -> GenerationRegistry:
         "gemini": GeminiGenerationBackend(
             api_key=settings.gemini_api_key,
             model_name=settings.gemini_model_name,
+        ),
+        "groq": GroqGenerationBackend(
+            api_key=settings.groq_api_key,
+            model_name=settings.groq_model_name,
         ),
     }
     return GenerationRegistry(backends=backends, primary=settings.generation_primary_backend)

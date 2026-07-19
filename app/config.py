@@ -25,6 +25,10 @@ class Settings:
     gemini_model_name: str = field(
         default_factory=lambda: os.environ.get("GEMINI_MODEL_NAME", "gemini-flash-latest")
     )
+    groq_api_key: str = field(default_factory=lambda: os.environ.get("GROQ_API_KEY", ""))
+    groq_model_name: str = field(
+        default_factory=lambda: os.environ.get("GROQ_MODEL_NAME", "llama-3.3-70b-versatile")
+    )
 
     # --- Which backend serves a capability when the caller doesn't pin one ---
     generation_primary_backend: str = field(
