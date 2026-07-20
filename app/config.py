@@ -21,13 +21,23 @@ class Settings:
     # --- Provider credentials ---
     gemini_api_key: str = field(default_factory=lambda: os.environ.get("GEMINI_API_KEY", ""))
 
+    groq_api_key: str = field(default_factory=lambda: os.environ.get("GROQ_API_KEY", ""))
+
+    ollama_host: str = field(
+        default_factory=lambda: os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    )
+
     # --- Provider model choice (never hardcode elsewhere - free tiers shift) ---
     gemini_model_name: str = field(
         default_factory=lambda: os.environ.get("GEMINI_MODEL_NAME", "gemini-flash-latest")
     )
-    groq_api_key: str = field(default_factory=lambda: os.environ.get("GROQ_API_KEY", ""))
+    
     groq_model_name: str = field(
         default_factory=lambda: os.environ.get("GROQ_MODEL_NAME", "llama-3.3-70b-versatile")
+    )
+
+    ollama_model_name: str = field(
+        default_factory=lambda: os.environ.get("OLLAMA_MODEL_NAME", "qwen2.5:3b-instruct")
     )
 
     # --- Which backend serves a capability when the caller doesn't pin one ---

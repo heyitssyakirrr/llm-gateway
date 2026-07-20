@@ -11,6 +11,8 @@ adapter directly.
 from app.capabilities.generate.base import GenerationBackend
 from app.capabilities.generate.backends.gemini import GeminiGenerationBackend
 from app.capabilities.generate.backends.groq import GroqGenerationBackend
+from app.capabilities.generate.backends.ollama_local import OllamaGenerationBackend
+
 from app.config import Settings
 
 
@@ -51,6 +53,10 @@ def build_generation_registry(settings: Settings) -> GenerationRegistry:
         "groq": GroqGenerationBackend(
             api_key=settings.groq_api_key,
             model_name=settings.groq_model_name,
+        ),
+        "qwen_local": OllamaGenerationBackend(
+            host=settings.ollama_host,
+            model_name=settings.ollama_model_name,
         ),
     }
     return GenerationRegistry(backends=backends, primary=settings.generation_primary_backend)
