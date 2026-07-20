@@ -13,6 +13,7 @@ from fastapi import Depends, FastAPI, Request
 from app.auth import verify_api_key
 from app.capabilities.generate.registry import GenerationRegistry, build_generation_registry
 from app.capabilities.generate.routes import router as generate_router
+from app.capabilities.extract.routes import router as extract_router
 from app.config import get_settings
 from app.logging_db import init_db
 from app.schemas.health import BackendHealth, HealthResponse
@@ -29,6 +30,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="LLM Gateway", lifespan=lifespan)
 
 app.include_router(generate_router)
+app.include_router(extract_router)
 
 
 def _get_registry(request: Request) -> GenerationRegistry:
