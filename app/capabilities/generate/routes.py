@@ -23,8 +23,8 @@ from app.capabilities.generate.base import (
     QuotaExceededError,
     RateLimitedError,
 )
+from app.capabilities.common.resilience import AllBackendsFailedError
 from app.capabilities.generate.registry import GenerationRegistry
-from app.capabilities.generate.resilience import AllBackendsFailedError
 from app.capabilities.generate.router import RouterConfigError, route_generation
 from app.config import get_settings
 from app.logging_db import RequestLogEntry, log_request

@@ -20,6 +20,8 @@ class Settings:
 
     groq_api_key: str = field(default_factory=lambda: os.environ.get("GROQ_API_KEY", ""))
 
+    cohere_api_key: str = field(default_factory=lambda: os.environ.get("COHERE_API_KEY", ""))
+
     ollama_host: str = field(
         default_factory=lambda: os.environ.get("OLLAMA_HOST", "http://localhost:11434")
     )
@@ -37,12 +39,24 @@ class Settings:
         default_factory=lambda: os.environ.get("OLLAMA_MODEL_NAME", "qwen2.5:3b-instruct")
     )
 
+    gemini_embedding_model_name: str = field(
+        default_factory=lambda: os.environ.get("GEMINI_EMBEDDING_MODEL_NAME", "gemini-embedding-001")
+    )
+
+    cohere_embedding_model_name: str = field(
+        default_factory=lambda: os.environ.get("COHERE_EMBEDDING_MODEL_NAME", "embed-english-v3.0")
+    )
+
     # --- Which backend serves a capability when the caller doesn't pin one ---
     generation_primary_backend: str = field(
         default_factory=lambda: os.environ.get("GENERATION_PRIMARY_BACKEND", "gemini")
     )
 
-    # --- Resilience (backoff + failover) ---
+    embedding_primary_backend: str = field(
+        default_factory=lambda: os.environ.get("EMBEDDING_PRIMARY_BACKEND", "gemini")
+    )
+
+    # --- generation resilience (backoff + failover) ---
     # Order backends are tried in when the primary/pinned one fails in a
     # way that isn't fixed by retrying it. The requested/primary backend
     # is always tried first regardless of its position here
@@ -76,6 +90,32 @@ class Settings:
     # unreasonably long time on a single backend before failing over.
     generation_backoff_max_seconds: float = field(
         default_factory=lambda: float(os.environ.get("GENERATION_BACKOFF_MAX_SECONDS", "8.0"))
+    )
+
+    # --- embedding resilience (backoff + failover) ---
+    # Same semantics as the generation_* block above, kept as separate
+    # settings (not reused wholesale) so embedding's retry/backoff
+    # behavior can be tuned independently later - e.g. a batch-embedding
+    # ingestion job might reasonably tolerate a longer max backoff than
+    # an interactive /v1/generate call should.
+    embedding_fallback_order: list[str] = field(
+        default_factory=lambda: [
+            name.strip()
+            for name in os.environ.get("EMBEDDING_FALLBACK_ORDER", "gemini,cohere").split(",")
+            if name.strip()
+        ]
+    )
+
+    embedding_max_retries_per_backend: int = field(
+        default_factory=lambda: int(os.environ.get("EMBEDDING_MAX_RETRIES_PER_BACKEND", "3"))
+    )
+
+    embedding_backoff_base_seconds: float = field(
+        default_factory=lambda: float(os.environ.get("EMBEDDING_BACKOFF_BASE_SECONDS", "0.5"))
+    )
+
+    embedding_backoff_max_seconds: float = field(
+        default_factory=lambda: float(os.environ.get("EMBEDDING_BACKOFF_MAX_SECONDS", "8.0"))
     )
 
     # --- Auth: "caller_name:key,caller_name2:key2" ---

@@ -22,6 +22,11 @@ class Price:
 # (backend, model_name) -> Price
 PRICING_TABLE: dict[tuple[str, str], Price] = {
     ("gemini", "gemini-2.5-flash"): Price(input_per_1k=0.0, output_per_1k=0.0),
+    # Embedding calls have no "completion" side - output_per_1k is 0.0 for
+    # both rows not because these happen to be free, but because that's
+    # structurally what an embedding call is (input tokens only).
+    ("gemini", "gemini-embedding-001"): Price(input_per_1k=0.0, output_per_1k=0.0),
+    ("cohere", "embed-english-v3.0"): Price(input_per_1k=0.0, output_per_1k=0.0),
 }
 
 

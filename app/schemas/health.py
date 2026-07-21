@@ -1,7 +1,10 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
 class BackendHealth(BaseModel):
+    capability: Literal["generate", "embed"]
     backend: str
     reachable: bool
     detail: str = ""

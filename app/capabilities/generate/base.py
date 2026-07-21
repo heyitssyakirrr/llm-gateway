@@ -17,6 +17,23 @@ doesn't force every adapter to change too.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
+# G3 refactor: the error taxonomy and HealthStatus used to be defined
+# directly in this file. Embedding backends need the exact same
+# distinctions (a Cohere 429 is still "retry vs failover" the same way a
+# Gemini 429 is), so both now live in capabilities/common/ and this file
+# just re-exports them - every existing
+# "from app.capabilities.generate.base import BackendAuthError" (etc.)
+# import elsewhere in the codebase keeps working unchanged, since these
+# names now point at the same shared classes rather than a local copy.
+from app.capabilities.common.errors import (  # noqa: F401
+    BackendAuthError,
+    BackendUnavailableError,
+    GenerationBackendError,
+    QuotaExceededError,
+    RateLimitedError,
+)
+from app.capabilities.common.health import HealthStatus  # noqa: F401
+
 
 @dataclass
 class GenerationParams:
@@ -49,43 +66,6 @@ class GenerationResult:
     model_name: str
     prompt_tokens: int | None
     completion_tokens: int | None
-
-
-@dataclass
-class HealthStatus:
-    """Result of a single backend's /v1/health check (Section 3.8)."""
-
-    backend: str
-    reachable: bool
-    detail: str = ""
-
-
-class GenerationBackendError(Exception):
-    """Base exception for adapter failures.
-    """
-
-
-class RateLimitedError(GenerationBackendError):
-    """HTTP 429 / rolling-window rate limit (RPM or TPM). Retry with backoff."""
-
-
-class QuotaExceededError(GenerationBackendError):
-    """Hard daily cap (RPD) or account quota. Do NOT retry - fail over instead."""
-
-
-class BackendAuthError(GenerationBackendError):
-    """The backend rejected our credentials - not a rate limit, don't retry."""
-
-
-class BackendUnavailableError(GenerationBackendError):
-    """The backend itself is unusable for reasons unrelated to rate limits,
-    quota, or credentials - e.g. a local Ollama process that isn't running,
-    a model that was never pulled, or the host being unreachable.
-
-    Treats it like BackendAuthError:
-    never retry the SAME backend for it, but still allow failover to the
-    NEXT configured backend, since the problem is specific to this one.
-    """
 
 
 class GenerationBackend(ABC):
