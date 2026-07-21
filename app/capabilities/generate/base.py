@@ -22,8 +22,7 @@ from dataclasses import dataclass, field
 class GenerationParams:
     """Everything an adapter needs to make one generation call.
 
-    This mirrors Section 7.6 of the project plan: these fields are the
-    real, provider-agnostic knobs every LLM API exposes in some form.
+    These fields are the real, provider-agnostic knobs every LLM API exposes in some form.
     """
 
     prompt: str
@@ -41,11 +40,9 @@ class GenerationParams:
 class GenerationResult:
     """What an adapter hands back after a successful call.
 
-    `raw_response` is intentionally NOT included here - Section 7's
+    `raw_response` is intentionally NOT included here - 
     no-content-logging rule means we never want a code path where the
-    full provider response accidentally ends up in a log row. If you need
-    provider-specific debug info later, add a narrow, explicit field for
-    it - don't smuggle the whole object through.
+    full provider response accidentally ends up in a log row.
     """
 
     text: str
@@ -65,12 +62,6 @@ class HealthStatus:
 
 class GenerationBackendError(Exception):
     """Base exception for adapter failures.
-
-    Subclasses let resilience.py (built in G2) distinguish RPM/TPM errors
-    (worth retrying) from RPD/quota errors (worth failing over instead) -
-    see Section 3.6. We define the taxonomy now so G1/G2 adapters raise
-    the right one from day one, even though nothing catches these
-    specifically until G2.
     """
 
 
@@ -91,11 +82,7 @@ class BackendUnavailableError(GenerationBackendError):
     quota, or credentials - e.g. a local Ollama process that isn't running,
     a model that was never pulled, or the host being unreachable.
 
-    Flagged as a real gap during G1 (see the project progress log, Session
-    7): RateLimitedError/QuotaExceededError/BackendAuthError all assume a
-    remote, metered, authenticated API, which doesn't describe a local
-    process's failure modes. This is a setup/environment problem, not a
-    transient one - resilience.py (G2) treats it like BackendAuthError:
+    Treats it like BackendAuthError:
     never retry the SAME backend for it, but still allow failover to the
     NEXT configured backend, since the problem is specific to this one.
     """
@@ -120,7 +107,7 @@ class GenerationBackend(ABC):
 
     @abstractmethod
     async def health_check(self) -> HealthStatus:
-        """Cheap reachability check - see Section 3.8 for per-backend semantics.
+        """Cheap reachability check.
 
         Must NOT be a full generation call. For hosted APIs this should be
         a minimal ping/models-list request; for local backends, a check

@@ -1,10 +1,7 @@
 """
 Central configuration, loaded from environment variables.
-
-Every secret (API keys) and every provider-specific detail (model names)
-lives here, loaded from env - never hardcoded in route handlers or
-adapters (Section 7.5's Security checklist). Load once per process via
-`get_settings()` (cached), so we're not re-parsing env vars per request.
+Load once per process via `get_settings()` (cached), so we're 
+not re-parsing env vars per request.
 """
 
 import os
@@ -13,7 +10,7 @@ from functools import lru_cache
 
 from dotenv import load_dotenv
 
-load_dotenv()  # reads a local .env file in dev; no-op in prod if absent
+load_dotenv()
 
 
 @dataclass
@@ -45,13 +42,11 @@ class Settings:
         default_factory=lambda: os.environ.get("GENERATION_PRIMARY_BACKEND", "gemini")
     )
 
-    # --- G2: resilience (backoff + failover) ---
+    # --- Resilience (backoff + failover) ---
     # Order backends are tried in when the primary/pinned one fails in a
-    # way that isn't fixed by retrying it (QuotaExceededError,
-    # BackendAuthError, BackendUnavailableError, or a RateLimitedError
-    # that's still failing after max_retries_per_backend). The
-    # requested/primary backend is always tried first regardless of its
-    # position here - see router.py's _build_attempt_order.
+    # way that isn't fixed by retrying it. The requested/primary backend
+    # is always tried first regardless of its position here
+    # see router.py's _build_attempt_order.
     generation_fallback_order: list[str] = field(
         default_factory=lambda: [
             name.strip()

@@ -1,47 +1,6 @@
 """
-Resilience layer (Phase G2): exponential backoff + jitter for transient
-rate limits, and failover across a configured backend order for anything
-retrying won't fix.
-
-This is the ONE place backoff/retry/failover logic lives, per the project
-plan's Section 9 promise that adding a backend is "one adapter class, one
-registry line" - if this logic were duplicated per-adapter or per-route,
-every future capability (embed, rerank) would need to reinvent it, and
-every backend would need to reimplement it. Instead, `router.py` builds an
-ordered list of backend names to try, and `run_with_resilience` is the
-only thing that ever calls `GenerationBackend.generate()` on the hot path.
-
-How each declared error (base.py) is handled here is a deliberate policy
-decision, not an accident of what happened to be easy to catch:
-
-- RateLimitedError (RPM/TPM):
-    Rolling-window limits clear on their own within seconds, so retrying
-    the SAME backend with exponential backoff + full jitter is the
-    correct response. After `max_retries_per_backend` attempts still
-    fail, this backend is treated as effectively unavailable right now -
-    fail over to the next one rather than keep waiting.
-
-- QuotaExceededError (RPD / daily cap):
-    A daily quota does not clear until the provider's reset, so retrying
-    is pure wasted latency. Move to the next backend immediately.
-
-- BackendAuthError / BackendUnavailableError:
-    Config or environment problems (bad key, model not pulled, service
-    down). Retrying the same backend would just repeat the same failure,
-    so these never get a backoff attempt - but the problem is specific to
-    THIS backend, so failover to the next one is still attempted.
-
-- Any other declared GenerationBackendError (e.g. "this backend doesn't
-  support image input"):
-    Not retryable on this backend, but also not fatal for the whole
-    request - try the next backend.
-
-- Anything NOT a GenerationBackendError:
-    An adapter is only supposed to raise GenerationBackendError (or a
-    subclass) for calls that reached the provider; anything else (a bug,
-    an unhandled exception type) is let through immediately rather than
-    silently absorbed into a "try the next backend" path that would mask
-    it as ordinary unreliability.
+Exponential backoff + jitter for transient rate limits, and failover 
+across a configured backend order for anything retrying won't fix.
 """
 
 import asyncio
