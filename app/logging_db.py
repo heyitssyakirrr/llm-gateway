@@ -91,6 +91,41 @@ class RequestLogEntry:
     error_type: str | None = None
 
 
+def fetch_backend_stats() -> list[dict]:
+    """Aggregate request_log by (capability, backend_used) for /v1/stats
+    (Phase G2) - the read side of every row every route has been writing
+    since G0. No new logging call sites needed anywhere for this.
+
+    Rows where backend_used IS NULL (every configured backend failed - see
+    resilience.py's AllBackendsFailedError) are excluded from this
+    per-backend rollup on purpose: there's no single backend to fairly
+    attribute a total failure to. Those rows are still in request_log for
+    manual inspection; a dedicated "requests with no successful backend"
+    count can be added here later if that's ever worth tracking as its
+    own number.
+    """
+    query = """
+        SELECT
+            capability,
+            backend_used,
+            COUNT(*) AS total_requests,
+            SUM(success) AS success_count,
+            AVG(latency_ms) AS avg_latency_ms,
+            SUM(COALESCE(prompt_tokens, 0)) AS total_prompt_tokens,
+            SUM(COALESCE(completion_tokens, 0)) AS total_completion_tokens,
+            SUM(COALESCE(cost_estimate, 0)) AS total_cost_estimate,
+            SUM(COALESCE(retries, 0)) AS total_retries
+        FROM request_log
+        WHERE backend_used IS NOT NULL
+        GROUP BY capability, backend_used
+        ORDER BY capability, backend_used
+    """
+    with _connection() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(query).fetchall()
+        return [dict(row) for row in rows]
+
+
 def log_request(entry: RequestLogEntry) -> None:
     """Write one row to request_log.
 

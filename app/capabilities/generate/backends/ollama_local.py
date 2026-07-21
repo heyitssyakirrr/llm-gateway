@@ -16,6 +16,7 @@ from ollama import AsyncClient
 from ollama import RequestError, ResponseError
 
 from app.capabilities.generate.base import (
+    BackendUnavailableError,
     GenerationBackend,
     GenerationBackendError,
     GenerationParams,
@@ -27,21 +28,24 @@ from app.capabilities.generate.base import (
 class OllamaGenerationBackend(GenerationBackend):
     """Adapter for a locally-running Qwen model served via Ollama.
 
-    Note on the error taxonomy: RateLimitedError / QuotaExceededError /
-    BackendAuthError (defined in base.py) all describe failure modes that
-    assume a remote, metered, authenticated API. None of them apply here
-    - there's no key to reject, no per-minute window, no daily cap. The
-    real local failure modes are different in kind, not just degree:
+    Note on the error taxonomy (resolved in G2 - see base.py):
+    RateLimitedError / QuotaExceededError / BackendAuthError all describe
+    failure modes that assume a remote, metered, authenticated API. None
+    of them apply here - there's no key to reject, no per-minute window,
+    no daily cap. The real local failure modes are different in kind, not
+    just degree:
       - Ollama service isn't running at all (connection refused)
       - The model name isn't pulled yet (404-shaped ResponseError)
       - The machine is out of VRAM/RAM for this model
     None of these are "retry with backoff" or "fail over to another
-    backend" situations - they're setup/environment problems. Rather than
-    force-fit them into the hosted-API taxonomy, they're raised as the
-    base GenerationBackendError with a clear message. This is exactly the
-    kind of interface gap G1 is meant to surface - flagging it here for
-    G2's resilience layer to make a deliberate decision about (e.g. a new
-    BackendUnavailableError category), instead of quietly picking one.
+    backend for THIS reason" situations - they're setup/environment
+    problems specific to this one backend. They're raised as
+    BackendUnavailableError so resilience.py can tell them apart from
+    RateLimitedError (worth retrying) and QuotaExceededError (worth
+    failing over because of load, not brokenness) - resilience.py still
+    lets the request fail over to the next configured backend, since the
+    problem is local to this adapter, but will never retry qwen_local
+    itself for it.
     """
 
     name = "qwen_local"
@@ -90,16 +94,21 @@ class OllamaGenerationBackend(GenerationBackend):
             )
         except ResponseError as e:
             # e.g. "model 'qwen2.5:3b-instruct' not found, try pulling it first"
-            raise GenerationBackendError(
+            # - an environment problem (model never pulled), not something
+            # a retry or a backoff delay would ever fix.
+            raise BackendUnavailableError(
                 f"Ollama rejected the request (status {e.status_code}): {e.error}"
             ) from e
         except RequestError as e:
             # Malformed request to the ollama client itself - a bug in how
-            # we're calling it, not a runtime backend failure.
-            raise GenerationBackendError(f"Invalid request to Ollama: {e}") from e
+            # we're calling it, not a runtime backend failure. Still not
+            # retryable (the same bug would just repeat), so this is
+            # "unavailable" in the sense that matters to resilience.py:
+            # don't retry this backend for it.
+            raise BackendUnavailableError(f"Invalid request to Ollama: {e}") from e
         except ConnectionError as e:
             # Ollama service isn't running / unreachable at `host`.
-            raise GenerationBackendError(
+            raise BackendUnavailableError(
                 f"Could not reach Ollama at the configured host: {e}"
             ) from e
 

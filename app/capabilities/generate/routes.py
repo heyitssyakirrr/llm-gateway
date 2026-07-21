@@ -1,10 +1,12 @@
 """
-Route handlers for the generate capability.
+Route handler for the generate capability (Section 4, G2).
 
-This is the only file in `capabilities/generate/` that knows it's an HTTP
-endpoint - everything it calls (router.py, registry.py, base.py, the
-backends/ adapters) stays framework-agnostic. main.py just mounts this
-router; it doesn't know what /v1/generate does internally.
+Backend selection, retry, and failover all now live behind
+`route_generation` (router.py -> resilience.py) - this file's job is
+purely HTTP concerns: validate the request (Pydantic already did that),
+call the router, translate the outcome into the standardized response
+envelope (Section 3.5), and log exactly one row per request (Section 5)
+regardless of whether it succeeded, retried, or failed over.
 """
 
 import asyncio
@@ -16,12 +18,15 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from app.auth import verify_api_key
 from app.capabilities.generate.base import (
     BackendAuthError,
+    BackendUnavailableError,
     GenerationParams,
     QuotaExceededError,
     RateLimitedError,
 )
 from app.capabilities.generate.registry import GenerationRegistry
-from app.capabilities.generate.router import route_generation
+from app.capabilities.generate.resilience import AllBackendsFailedError
+from app.capabilities.generate.router import RouterConfigError, route_generation
+from app.config import get_settings
 from app.logging_db import RequestLogEntry, log_request
 from app.pricing import estimate_cost
 from app.schemas.generate import GenerateRequest, GenerateResponse
@@ -35,13 +40,16 @@ def _get_registry(request: Request) -> GenerationRegistry:
 
 def _classify_error_type(exc: Exception) -> str:
     """Map a raised exception onto request_log's error_type taxonomy
-    (Section 5): rpm_tpm / rpd_quota / auth / timeout / other."""
+    (Section 5): rpm_tpm / rpd_quota / auth / unavailable / timeout / other.
+    """
     if isinstance(exc, RateLimitedError):
         return "rpm_tpm"
     if isinstance(exc, QuotaExceededError):
         return "rpd_quota"
     if isinstance(exc, BackendAuthError):
         return "auth"
+    if isinstance(exc, BackendUnavailableError):
+        return "unavailable"
     if isinstance(exc, TimeoutError | asyncio.TimeoutError):
         return "timeout"
     return "other"
@@ -51,14 +59,14 @@ def _classify_error_type(exc: Exception) -> str:
 async def generate(
     body: GenerateRequest,
     http_request: Request,
-    caller_id: str = Depends(verify_api_key), #syakir
+    caller_id: str = Depends(verify_api_key),
     x_request_id: str | None = Header(default=None),
 ) -> GenerateResponse:
     request_id = x_request_id or str(uuid.uuid4())
     registry = _get_registry(http_request)
+    settings = get_settings()
 
-    # Metadata only - Section 7's no-content-logging rule. Never put
-    # `prompt` or `system_instruction` in here.
+    # Metadata only (Section 7) - never the prompt or response text itself.
     params_used = {
         "temperature": body.temperature,
         "max_tokens": body.max_tokens,
@@ -69,13 +77,6 @@ async def generate(
         "image_mime_type": body.image_mime_type,
     }
 
-    # router.py resolves which backend object to use?
-    try:
-        decision = route_generation(registry, body.backend)
-    except KeyError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-
-    # translate the HTTP-shaped body (generate request) into the backend-shaped dataclass (GenerationParams)
     gen_params = GenerationParams(
         prompt=body.prompt,
         system_instruction=body.system_instruction,
@@ -90,11 +91,19 @@ async def generate(
 
     start = time.perf_counter()
     try:
-        # call to backend's generate method
-        result = await decision.backend.generate(gen_params)
-    except Exception as exc:
+        decision = await route_generation(registry, settings, body.backend, gen_params)
+    except KeyError as e:
+        # Caller pinned a backend name we don't recognize - a client
+        # error, resolved before any backend call was ever attempted.
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RouterConfigError as e:
+        # The SERVER's configuration is broken (e.g. GENERATION_PRIMARY_BACKEND
+        # points at a backend that isn't registered) - never the caller's
+        # fault, so this is a 500, not a 400.
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    except AllBackendsFailedError as exc:
         latency_ms = int((time.perf_counter() - start) * 1000)
-        error_type = _classify_error_type(exc)
+        error_type = _classify_error_type(exc.last_error)
         log_request(
             RequestLogEntry(
                 request_id=request_id,
@@ -102,21 +111,28 @@ async def generate(
                 capability="generate",
                 endpoint="/v1/generate",
                 backend_requested=body.backend,
-                backend_used=decision.backend.name,
+                backend_used=None,
                 model_name=None,
                 params_used=params_used,
-                fallback_chain=decision.fallback_chain,
+                fallback_chain=exc.attempted[1:],
                 latency_ms=latency_ms,
+                retries=exc.retries,
                 success=False,
                 error_type=error_type,
             )
         )
+        # 429 when the underlying cause is rate/quota pressure across every
+        # configured backend (the caller should back off and retry later);
+        # 502 for everything else (auth/unavailable/other - an operator
+        # problem, not something the caller can fix by retrying).
         status_code = 429 if error_type in ("rpm_tpm", "rpd_quota") else 502
         raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
     latency_ms = int((time.perf_counter() - start) * 1000)
+    result = decision.result
+    backend_used = decision.backend_used
     cost = estimate_cost(
-        decision.backend.name, result.model_name, result.prompt_tokens, result.completion_tokens
+        backend_used.name, result.model_name, result.prompt_tokens, result.completion_tokens
     )
     tokens_used = None
     if result.prompt_tokens is not None and result.completion_tokens is not None:
@@ -129,7 +145,7 @@ async def generate(
             capability="generate",
             endpoint="/v1/generate",
             backend_requested=body.backend,
-            backend_used=decision.backend.name,
+            backend_used=backend_used.name,
             model_name=result.model_name,
             params_used=params_used,
             fallback_chain=decision.fallback_chain,
@@ -137,17 +153,18 @@ async def generate(
             prompt_tokens=result.prompt_tokens,
             completion_tokens=result.completion_tokens,
             cost_estimate=cost,
+            retries=decision.retries,
             success=True,
         )
     )
 
     return GenerateResponse(
         data=result.text,
-        backend_used=decision.backend.name,
+        backend_used=backend_used.name,
         model_name=result.model_name,
         request_id=request_id,
         latency_ms=latency_ms,
         tokens_used=tokens_used,
         cost_estimate=cost,
-        retries=0,
+        retries=decision.retries,
     )

@@ -45,6 +45,44 @@ class Settings:
         default_factory=lambda: os.environ.get("GENERATION_PRIMARY_BACKEND", "gemini")
     )
 
+    # --- G2: resilience (backoff + failover) ---
+    # Order backends are tried in when the primary/pinned one fails in a
+    # way that isn't fixed by retrying it (QuotaExceededError,
+    # BackendAuthError, BackendUnavailableError, or a RateLimitedError
+    # that's still failing after max_retries_per_backend). The
+    # requested/primary backend is always tried first regardless of its
+    # position here - see router.py's _build_attempt_order.
+    generation_fallback_order: list[str] = field(
+        default_factory=lambda: [
+            name.strip()
+            for name in os.environ.get(
+                "GENERATION_FALLBACK_ORDER", "gemini,groq,qwen_local"
+            ).split(",")
+            if name.strip()
+        ]
+    )
+
+    # Max backoff-and-retry attempts on a SINGLE backend for a
+    # RateLimitedError before giving up on it and moving to the next
+    # backend in generation_fallback_order. 0 disables retries entirely
+    # (first RateLimitedError fails over immediately).
+    generation_max_retries_per_backend: int = field(
+        default_factory=lambda: int(os.environ.get("GENERATION_MAX_RETRIES_PER_BACKEND", "3"))
+    )
+
+    # Backoff base delay, in seconds, for the exponential-backoff-with-
+    # full-jitter formula in resilience.py: actual delay for attempt N is
+    # a random value in [0, min(max, base * 2**N)).
+    generation_backoff_base_seconds: float = field(
+        default_factory=lambda: float(os.environ.get("GENERATION_BACKOFF_BASE_SECONDS", "0.5"))
+    )
+
+    # Backoff delay cap, in seconds - keeps retries from ever waiting an
+    # unreasonably long time on a single backend before failing over.
+    generation_backoff_max_seconds: float = field(
+        default_factory=lambda: float(os.environ.get("GENERATION_BACKOFF_MAX_SECONDS", "8.0"))
+    )
+
     # --- Auth: "caller_name:key,caller_name2:key2" ---
     raw_api_keys: str = field(default_factory=lambda: os.environ.get("GATEWAY_API_KEYS", ""))
 

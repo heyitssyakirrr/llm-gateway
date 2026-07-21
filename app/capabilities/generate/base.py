@@ -86,6 +86,21 @@ class BackendAuthError(GenerationBackendError):
     """The backend rejected our credentials - not a rate limit, don't retry."""
 
 
+class BackendUnavailableError(GenerationBackendError):
+    """The backend itself is unusable for reasons unrelated to rate limits,
+    quota, or credentials - e.g. a local Ollama process that isn't running,
+    a model that was never pulled, or the host being unreachable.
+
+    Flagged as a real gap during G1 (see the project progress log, Session
+    7): RateLimitedError/QuotaExceededError/BackendAuthError all assume a
+    remote, metered, authenticated API, which doesn't describe a local
+    process's failure modes. This is a setup/environment problem, not a
+    transient one - resilience.py (G2) treats it like BackendAuthError:
+    never retry the SAME backend for it, but still allow failover to the
+    NEXT configured backend, since the problem is specific to this one.
+    """
+
+
 class GenerationBackend(ABC):
     """The contract every generation provider adapter must implement."""
 

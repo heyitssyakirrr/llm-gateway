@@ -38,6 +38,12 @@ class GenerationRegistry:
         """All configured backends - used by /v1/health to check every one."""
         return list(self._backends.values())
 
+    def names(self) -> list[str]:
+        """All configured backend names - used by router.py (G2) to
+        validate a caller-pinned backend before building a fallback order,
+        and by observability/service.py's /v1/models."""
+        return list(self._backends)
+
 
 def build_generation_registry(settings: Settings) -> GenerationRegistry:
     """Construct every generation adapter from settings.

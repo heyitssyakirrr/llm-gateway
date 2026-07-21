@@ -16,6 +16,7 @@ from app.capabilities.generate.routes import router as generate_router
 from app.capabilities.extract.routes import router as extract_router
 from app.config import get_settings
 from app.logging_db import init_db
+from app.observability.routes import router as observability_router
 from app.schemas.health import BackendHealth, HealthResponse
 
 
@@ -31,6 +32,7 @@ app = FastAPI(title="LLM Gateway", lifespan=lifespan)
 
 app.include_router(generate_router)
 app.include_router(extract_router)
+app.include_router(observability_router)
 
 
 def _get_registry(request: Request) -> GenerationRegistry:
