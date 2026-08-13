@@ -27,6 +27,12 @@ PRICING_TABLE: dict[tuple[str, str], Price] = {
     # structurally what an embedding call is (input tokens only).
     ("gemini", "gemini-embedding-001"): Price(input_per_1k=0.0, output_per_1k=0.0),
     ("cohere", "embed-english-v3.0"): Price(input_per_1k=0.0, output_per_1k=0.0),
+    # Cohere actually bills rerank by "search units," not tokens - this
+    # row exists so /v1/stats and estimate_cost() have a defined entry
+    # for this (backend, model) pair rather than silently returning 0.0
+    # via the "unknown pair" fallback, which would look identical but
+    # mean something different (never priced vs. genuinely free).
+    ("cohere", "rerank-english-v3.0"): Price(input_per_1k=0.0, output_per_1k=0.0),
 }
 
 

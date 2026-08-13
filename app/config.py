@@ -47,6 +47,10 @@ class Settings:
         default_factory=lambda: os.environ.get("COHERE_EMBEDDING_MODEL_NAME", "embed-english-v3.0")
     )
 
+    cohere_rerank_model_name: str = field(
+        default_factory=lambda: os.environ.get("COHERE_RERANK_MODEL_NAME", "rerank-english-v3.0")
+    )
+
     # --- Which backend serves a capability when the caller doesn't pin one ---
     generation_primary_backend: str = field(
         default_factory=lambda: os.environ.get("GENERATION_PRIMARY_BACKEND", "gemini")
@@ -54,6 +58,10 @@ class Settings:
 
     embedding_primary_backend: str = field(
         default_factory=lambda: os.environ.get("EMBEDDING_PRIMARY_BACKEND", "gemini")
+    )
+
+    rerank_primary_backend: str = field(
+        default_factory=lambda: os.environ.get("RERANK_PRIMARY_BACKEND", "cohere")
     )
 
     # --- generation resilience (backoff + failover) ---
@@ -116,6 +124,32 @@ class Settings:
 
     embedding_backoff_max_seconds: float = field(
         default_factory=lambda: float(os.environ.get("EMBEDDING_BACKOFF_MAX_SECONDS", "8.0"))
+    )
+
+    # --- G4: rerank resilience (backoff + failover) ---
+    # Same semantics as generation_*/embedding_* above. Only one backend
+    # is configured today (Section 3.3 - no free-tier fallback provider
+    # exists for reranking), so this list has exactly one entry by
+    # default - but it stays a list, not a single string, so adding a
+    # second rerank provider later is a config change, not a code change.
+    rerank_fallback_order: list[str] = field(
+        default_factory=lambda: [
+            name.strip()
+            for name in os.environ.get("RERANK_FALLBACK_ORDER", "cohere").split(",")
+            if name.strip()
+        ]
+    )
+
+    rerank_max_retries_per_backend: int = field(
+        default_factory=lambda: int(os.environ.get("RERANK_MAX_RETRIES_PER_BACKEND", "3"))
+    )
+
+    rerank_backoff_base_seconds: float = field(
+        default_factory=lambda: float(os.environ.get("RERANK_BACKOFF_BASE_SECONDS", "0.5"))
+    )
+
+    rerank_backoff_max_seconds: float = field(
+        default_factory=lambda: float(os.environ.get("RERANK_BACKOFF_MAX_SECONDS", "8.0"))
     )
 
     # --- Auth: "caller_name:key,caller_name2:key2" ---

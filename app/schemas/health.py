@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class BackendHealth(BaseModel):
-    capability: Literal["generate", "embed"]
+    capability: Literal["generate", "embed", "rerank"]
     backend: str
     reachable: bool
     detail: str = ""
